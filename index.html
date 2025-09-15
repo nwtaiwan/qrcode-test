@@ -254,6 +254,18 @@
             </div>
         </div>
 
+        <!-- Confirmation Modal -->
+        <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+            <div class="bg-white rounded-lg shadow-xl w-11/12 max-w-sm p-6">
+                <h3 id="confirm-modal-title" class="text-lg font-semibold text-gray-800 mb-4">確定要執行此操作嗎？</h3>
+                <p id="confirm-modal-text" class="text-gray-600 mb-6">此動作無法復原。</p>
+                <div class="flex justify-end gap-4">
+                    <button id="confirm-modal-cancel-btn" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300">取消</button>
+                    <button id="confirm-modal-ok-btn" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700">確定刪除</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Firebase SDK -->
@@ -282,23 +294,82 @@
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Firebase Configuration ---
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        // IMPORTANT: 請在此處貼上您自己的 Firebase 設定物件
+        // 1. 前往 https://console.firebase.google.com/ 建立一個新的 Firebase 專案。
+        // 2. 在您的專案中，建立一個「網頁」應用程式。
+        // 3. Firebase 會提供一組設定碼 (firebaseConfig)，請將其複製並貼到下方。
+        // 4. 在 Firebase 主控台中，前往「Authentication」->「Sign-in method」，啟用「電子郵件/密碼」登入方式。
+        // 5. 前往「Firestore Database」，建立一個資料庫，並設定安全規則為測試模式 (允許讀寫) 以便開始。
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-qr-checkin';
         
-        const app = initializeApp(firebaseConfig);
+        // --- App Initialization ---
+        const loginView = document.getElementById('login-view');
+
+        // 檢查 firebaseConfig 是否已填寫
+        if (firebaseConfig.apiKey === "YOUR_API_KEY" && typeof __firebase_config === 'undefined') {
+            loginView.innerHTML = `
+                <div class="p-8 text-center bg-red-50 rounded-lg">
+                    <h1 class="text-2xl font-bold text-red-700">設定錯誤</h1>
+                    <p class="mt-2 text-gray-800">
+                        Firebase 設定尚未完成。請編輯此 HTML 檔案，
+                        在 &lt;script type="module"&gt; 區塊中填入您自己的 Firebase 設定碼 (firebaseConfig)。
+                    </p>
+                    <p class="mt-4 text-sm text-gray-600">
+                        詳細步驟請參考程式碼內的註解說明。
+                    </p>
+                </div>
+            `;
+            throw new Error("Firebase config is not set. Please update the firebaseConfig object in the script.");
+        }
+        
+        const finalFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
+        const app = initializeApp(finalFirebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
         // --- DOM Elements ---
-        const loginView = document.getElementById('login-view');
         const mainView = document.getElementById('main-view');
         const authError = document.getElementById('auth-error');
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmModalOkBtn = document.getElementById('confirm-modal-ok-btn');
+        const confirmModalCancelBtn = document.getElementById('confirm-modal-cancel-btn');
 
         // --- State ---
         let currentUser = null;
         let configUnsubscribe = null;
         let residentsUnsubscribe = null;
         let html5QrCode = null;
+        let confirmResolve = null;
+
+        // --- Confirmation Modal Logic ---
+        function showConfirmModal(title, text, confirmText = '確定') {
+            return new Promise((resolve) => {
+                document.getElementById('confirm-modal-title').textContent = title;
+                document.getElementById('confirm-modal-text').textContent = text;
+                confirmModalOkBtn.textContent = confirmText;
+                confirmModal.classList.remove('hidden');
+                confirmResolve = resolve;
+            });
+        }
+
+        confirmModalOkBtn.addEventListener('click', () => {
+            confirmModal.classList.add('hidden');
+            if (confirmResolve) confirmResolve(true);
+        });
+
+        confirmModalCancelBtn.addEventListener('click', () => {
+            confirmModal.classList.add('hidden');
+            if (confirmResolve) confirmResolve(false);
+        });
 
         // --- Authentication ---
         onAuthStateChanged(auth, (user) => {
@@ -480,7 +551,7 @@
                 setTimeout(() => feedback.textContent = '', 3000);
             } catch (e) {
                 console.error("Error saving config:", e);
-                alert("儲存失敗，請檢查網路連線。");
+                // Cannot use alert
             }
         });
 
@@ -502,7 +573,6 @@
                     householdInput.focus();
                 } catch(e) {
                     console.error("Error adding resident: ", e);
-                    alert("新增住戶失敗！");
                 }
             }
         });
@@ -511,12 +581,12 @@
             if (e.target.closest('.delete-resident-btn')) {
                 const btn = e.target.closest('.delete-resident-btn');
                 const residentId = btn.dataset.id;
-                if (confirm('確定要刪除這位住戶嗎？')) {
+                const confirmed = await showConfirmModal('刪除住戶', '您確定要刪除這位住戶嗎？', '確定刪除');
+                if (confirmed) {
                     try {
                         await deleteDoc(doc(db, `artifacts/${appId}/public/data/residents`, residentId));
                     } catch (e) {
                         console.error("Error deleting resident: ", e);
-                        alert("刪除失敗！");
                     }
                 }
             }
@@ -613,11 +683,13 @@
 
             // Resume scanner after a short delay
             setTimeout(() => {
-                if (html5QrCode && html5QrCode.getState() === Html5QrcodeScannerState.PAUSED) {
+                // Check if scanner exists and its state is paused
+                if (html5QrCode && typeof html5QrCode.getState === 'function' && html5QrCode.getState() === 2) { // 2 corresponds to PAUSED state
                     html5QrCode.resume();
                 }
             }, 2000);
         }
+
 
         function onScanFailure(error) {
             // This is called frequently, so we don't log every failure.
