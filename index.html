@@ -68,7 +68,7 @@
             <div class="mt-6 border-t pt-4">
                  <p class="text-center text-slate-600 mb-2">無法掃描？</p>
                 <div class="flex flex-col sm:flex-row gap-2">
-                    <input type="text" id="manual-input" placeholder="請輸入戶號，例如: A-101" class="flex-grow w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    <input type="text" id="manual-input" placeholder="請輸入戶號，例如: A001" class="flex-grow w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                     <button id="manual-submit" class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
                         手動報到
                     </button>
@@ -84,9 +84,9 @@
     <script>
         // --- 模擬後端資料庫 ---
         const residents = {
-            "resident-a101-uuid-1111-xxxx": { household: "A-101", name: "王大明" },
-            "resident-b202-uuid-2222-yyyy": { household: "B-202", name: "陳小姐" },
-            "resident-c303-uuid-3333-zzzz": { household: "C-303", name: "李先生" },
+            "A001ADDT": { household: "A001", name: "住戶一" },
+            "A002ADDT": { household: "A002", name: "住戶二" },
+            "A003ADDT": { household: "A003", name: "住戶三" },
         };
         // 用來記錄每個活動的報到狀況
         let attendance = {};
@@ -255,14 +255,22 @@
             }).catch(err => {
                 console.error("請求攝影機權限時發生錯誤", err);
                 qrReaderDiv.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-full text-red-500 p-4 text-center">
-                        <p class="font-semibold">請求攝影機權限失敗</p>
-                        <ul class="mt-2 text-sm text-slate-600 list-disc list-inside text-left max-w-xs mx-auto">
+                    <div class="flex flex-col items-center justify-center h-full text-red-600 p-4 text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h10.5a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H4.5A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
+                        </svg>
+                        <p class="text-xl font-bold mb-2">攝影機權限已被封鎖</p>
+                        <div class="bg-red-100 p-3 rounded-lg">
+                            <p class="text-lg font-semibold text-slate-800">
+                                請點擊瀏覽器網址列最左邊的圖示 (🔒)，<br>並將「攝影機」權限設定為「<b>允許</b>」。
+                            </p>
+                        </div>
+                        <ul class="mt-4 text-sm text-slate-600 list-disc list-inside text-left max-w-sm mx-auto">
                            <li>請確認網址是以 <b>https://</b> 開頭。</li>
-                           <li>您可能已封鎖攝影機權限。請點擊網址列旁的攝影機圖示，並選擇「允許」。</li>
-                           <li>請檢查是否有瀏覽器擴充功能阻擋了攝影機存取。</li>
+                           <li>請檢查是否有其他程式或擴充功能正在使用攝影機。</li>
                         </ul>
-                        <button id="retry-camera-btn" class="mt-4 bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700">
+                        <button id="retry-camera-btn" class="mt-6 bg-indigo-600 text-white font-semibold py-2 px-6 rounded-md hover:bg-indigo-700 text-lg">
                             設定完成後，點此重試
                         </button>
                     </div>`;
